@@ -1,5 +1,5 @@
 #include <stdint.h>
-
+#include <stddef.h>
 // Define macro for magic sanitization.
 #define SHY_MAGIC "SHY\xFF"
 
@@ -26,5 +26,11 @@ typedef struct {
   char* paths;
 } shy_file;
 
-// Read existing SHY-File
+// Read existing SHY-File.
 shy_file shy_file_read(const char* path);
+
+// Save SHY-File to disk.
+void shy_file_save(shy_file files, const char* path);
+
+// Create SHY-File memory representation.
+shy_file shy_file_create(const char** file_paths, size_t file_cnt);
