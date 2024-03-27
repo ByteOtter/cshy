@@ -108,6 +108,8 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
   }
 
   result.data = calloc(data_size, sizeof(uint8_t));
+  result.header.data_size = data_size;
+  result.header.str_size = str_size;
   uint8_t* cur = result.data;
 
   for (size_t i = 0; i < file_cnt; i++) {
@@ -121,6 +123,14 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
     fclose(f);
   }
   
+  result.paths = calloc(str_size, sizeof(char));
+  char* cursor = result.paths;
+
+  for (size_t i = 0; i < file_cnt; i++) {
+    strcpy(cursor, file_paths[i]);
+    cursor += strlen(file_paths[i]);
+  }
+
   return result;
 }
 
