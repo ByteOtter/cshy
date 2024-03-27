@@ -129,7 +129,7 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
 
   for (size_t i = 0; i < file_cnt; i++) {
     strcpy(cursor, file_paths[i]);
-    cursor += strlen(file_paths[i]);
+    cursor += strlen(file_paths[i])+1;
   }
 
   return result;
