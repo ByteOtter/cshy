@@ -69,6 +69,7 @@ void shy_file_save(shy_file files, const char* path) {
   WRITE(files.header.magic);
   WRITE(files.header.file_cnt);
   WRITE(files.header.data_size);
+  WRITE(files.header.str_size);
 
   for (uint64_t i = 0; i < files.header.file_cnt; i++) {
     WRITE(files.entries[i].off);
