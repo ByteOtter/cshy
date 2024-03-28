@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
 // Define READ macro to avoid repetitive fread calls.
 #define READ(var) fread(&var, sizeof(var), 1, f)
@@ -32,6 +33,7 @@ shy_file shy_file_read(const char* path) {
 
   READ(result.header.file_cnt);
   READ(result.header.data_size);
+  READ(result.header.str_size);
 
   // Read entries.
   result.entries = calloc(result.header.file_cnt, sizeof(shy_entry));
@@ -133,5 +135,59 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
   }
 
   return result;
+}
+
+static void _mkdir(const char *dir) {
+    char tmp[256];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp),"%s",dir);
+    len = strlen(tmp);
+    if (tmp[len - 1] == '/')
+        tmp[len - 1] = 0;
+    for (p = tmp + 1; *p; p++)
+        if (*p == '/') {
+            *p = 0;
+            mkdir(tmp, S_IRWXU);
+            *p = '/';
+        }
+    mkdir(tmp, S_IRWXU);
+}
+
+// Unpack original files from shyfile.
+//
+// - Call shy_file_read to get the structure of the file.
+// - For each file in the shyfile extract its data and path.
+// - Write the files to its *original* location.
+//
+// TODO:
+// - Add argument to unpack at current location
+// - Add argument to unpack in new folder with the shyfile name.
+void shy_file_unpack(shy_file f, const char* shyFileName) {
+
+  // Iterate through the entries of the shyfile.
+  for (uint64_t i = 0; i < f.header.file_cnt; i++) {
+    // set current entry.
+    shy_entry curr_ent = f.entries[i];
+    // Get path from list of paths or data. Do so by adding the current entries path offset.
+    char destBuff[512]; // Stack buffer 512 Bytes for path handling.
+    char* dest_path = f.paths + curr_ent.path_off;
+    snprintf(destBuff, sizeof(destBuff), "output/%s/", shyFileName);
+    _mkdir(destBuff);
+    snprintf(destBuff + strlen(destBuff), sizeof(destBuff), "%s", dest_path);
+    uint8_t* file_data = f.data + curr_ent.off;
+
+    // Open new file to write into.
+    FILE* file = fopen(destBuff, "w");
+    if (!file) {
+      printf("Error while opening target file! %s\n", strerror(errno));
+      exit(EXIT_FAILURE);
+    }
+
+    // Write data
+    fwrite(file_data, 1, curr_ent.size, file);
+    fclose(file);
+  }
 }
 

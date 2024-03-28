@@ -34,3 +34,5 @@ void shy_file_save(shy_file files, const char* path);
 
 // Create SHY-File memory representation.
 shy_file shy_file_create(const char** file_paths, size_t file_cnt);
+
+void shy_file_unpack(shy_file f, const char* shyFileName);
