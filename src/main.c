@@ -48,7 +48,10 @@ int main(int argc, const char** argv) {
     shy_file_save(file, nameBuff);
 
   } else if (!strcmp(argv[1], "unpack")) {
-    // TODO catch if more than one input files specified!
+    if (argc > 3) {
+      printf("Error: Only one input file allowed while unpacking!\n");
+      return 1;
+    }
     printf("Unpacking. Reading shyfile.\n");
     shy_file file = shy_file_read(inputFiles[0]);
     printf("Writing Files.\n");
