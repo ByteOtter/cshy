@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <zstd.h>
 
 // Define READ macro to avoid repetitive fread calls.
 #define READ(var) fread(&var, sizeof(var), 1, f)
@@ -32,7 +33,6 @@ shy_file shy_file_read(const char* path) {
   }
 
   READ(result.header.file_cnt);
-  READ(result.header.data_size);
   READ(result.header.str_size);
 
   // Read entries.
@@ -42,10 +42,25 @@ shy_file shy_file_read(const char* path) {
     READ(result.entries[i].off);
     READ(result.entries[i].size);
     READ(result.entries[i].path_off);
+    READ(result.entries[i].unc_size);
   }
+ 
 
-  result.data = calloc(result.header.data_size, sizeof(uint8_t));
-  fread(result.data, sizeof(uint8_t), result.header.data_size, f); // Read all bytes from f.
+  // Read file data.
+  for (uint64_t i = 0; i < result.header.file_cnt; i++) {
+    uint8_t* buff = calloc(result.entries[i].size, sizeof(uint8_t));
+    fread(buff, sizeof(*buff), result.entries[i].size, f);
+
+    result.entries[i].data = calloc(result.entries[i].unc_size, sizeof(uint8_t));
+    
+    size_t err = ZSTD_decompress(result.entries[i].data, result.entries[i].unc_size, buff, result.entries[i].size);
+
+    if (ZSTD_isError(err)) {
+      printf("Error while decompressing file! %s\n", ZSTD_getErrorName(err));
+      exit(1);
+    }
+    free(buff); 
+  }
   
   // Read file names
   result.paths = calloc(result.header.str_size, sizeof(char));
@@ -70,16 +85,29 @@ void shy_file_save(shy_file files, const char* path) {
 
   WRITE(files.header.magic);
   WRITE(files.header.file_cnt);
-  WRITE(files.header.data_size);
   WRITE(files.header.str_size);
 
+  uint8_t** file_bodies = calloc(files.header.file_cnt, sizeof(uint8_t*));
+
   for (uint64_t i = 0; i < files.header.file_cnt; i++) {
+    file_bodies[i] = calloc(ZSTD_compressBound(files.entries[i].unc_size), sizeof(uint8_t));
+    size_t err = ZSTD_compress(file_bodies[i], ZSTD_compressBound(files.entries[i].unc_size), files.entries[i].data,files.entries[i].unc_size, 14);
+   
+    if (ZSTD_isError(err)) {
+      printf("Error while trying to compress source files! %s! (line: %i)\n", ZSTD_getErrorName(err), __LINE__);
+      exit(1);
+    }
+    files.entries[i].size = err;
+
     WRITE(files.entries[i].off);
     WRITE(files.entries[i].size);
     WRITE(files.entries[i].path_off);
-  }
+    WRITE(files.entries[i].unc_size);
+ }
 
-  fwrite(files.data, sizeof(uint8_t), files.header.data_size, f);
+  for (uint64_t i = 0; i < files.header.file_cnt; i++) {
+    fwrite(file_bodies[i], sizeof(uint8_t), files.entries[i].size, f);
+ }
 
   fwrite(files.paths, sizeof(char), files.header.str_size, f);
   
@@ -108,12 +136,10 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
     result.entries[i].path_off = str_size;
     // Get length of path string including nullbyte.
     str_size += strlen(file_paths[i])+1;
-  }
+ }
 
-  result.data = calloc(data_size, sizeof(uint8_t));
-  result.header.data_size = data_size;
+
   result.header.str_size = str_size;
-  uint8_t* cur = result.data;
 
   for (size_t i = 0; i < file_cnt; i++) {
     // Read the file as bytes into memory.
@@ -121,8 +147,10 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
     fseek(f, 0, SEEK_END);
     size_t filesize = ftell(f);
     fseek(f, 0, SEEK_SET);
-    fread(cur, filesize, 1, f);
-    cur += filesize;
+    // Create buffer for compressed data.
+    result.entries[i].data = calloc(filesize, sizeof(uint8_t));
+    result.entries[i].unc_size = filesize;
+    fread(result.entries[i].data, filesize, 1, f);
     fclose(f);
   }
   
@@ -176,7 +204,6 @@ void shy_file_unpack(shy_file f, const char* shyFileName) {
     snprintf(destBuff, sizeof(destBuff), "output/%s/", shyFileName);
     _mkdir(destBuff);
     snprintf(destBuff + strlen(destBuff), sizeof(destBuff), "%s", dest_path);
-    uint8_t* file_data = f.data + curr_ent.off;
 
     // Open new file to write into.
     FILE* file = fopen(destBuff, "w");
@@ -184,9 +211,9 @@ void shy_file_unpack(shy_file f, const char* shyFileName) {
       printf("Error while opening target file! %s\n", strerror(errno));
       exit(EXIT_FAILURE);
     }
-
+   
     // Write data
-    fwrite(file_data, 1, curr_ent.size, file);
+    fwrite(curr_ent.data, 1, curr_ent.unc_size, file);
     fclose(file);
   }
 }

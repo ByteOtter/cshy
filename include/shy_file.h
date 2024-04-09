@@ -7,7 +7,6 @@
 typedef struct {
   uint32_t magic;
   uint64_t file_cnt;
-  uint64_t data_size;
   uint64_t str_size;
 } shy_hdr;
 
@@ -16,13 +15,14 @@ typedef struct {
   uint64_t off;
   uint64_t size;
   uint64_t path_off;
+  uint64_t unc_size; // Uncompressed size. No compression if 0.
+  uint8_t* data;
 } shy_entry;
 
 // Shy file format struct.
 typedef struct {
   shy_hdr header;
   shy_entry* entries;
-  uint8_t* data;
   char* paths;
 } shy_file;
 

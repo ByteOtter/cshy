@@ -6,3 +6,4 @@ add_executable(cshy
   src/shy_file.c
   )
 target_include_directories(cshy PUBLIC include/)
+target_link_libraries(cshy PUBLIC zstd)
