@@ -70,7 +70,7 @@ shy_file shy_file_read(const char* path) {
   return result;
 }
 
-void shy_file_save(shy_file files, const char* path) {
+void shy_file_save(shy_file files, const char* path, int clvl) {
   FILE* f = fopen(path, "w");
 
   if (!f) {
@@ -90,8 +90,9 @@ void shy_file_save(shy_file files, const char* path) {
   uint8_t** file_bodies = calloc(files.header.file_cnt, sizeof(uint8_t*));
 
   for (uint64_t i = 0; i < files.header.file_cnt; i++) {
+    printf("Compressing files with compression level '%i'. File %lu/%lu...\n", clvl, i+1, files.header.file_cnt);
     file_bodies[i] = calloc(ZSTD_compressBound(files.entries[i].unc_size), sizeof(uint8_t));
-    size_t err = ZSTD_compress(file_bodies[i], ZSTD_compressBound(files.entries[i].unc_size), files.entries[i].data,files.entries[i].unc_size, 14);
+    size_t err = ZSTD_compress(file_bodies[i], ZSTD_compressBound(files.entries[i].unc_size), files.entries[i].data,files.entries[i].unc_size, clvl);
    
     if (ZSTD_isError(err)) {
       printf("Error while trying to compress source files! %s! (line: %i)\n", ZSTD_getErrorName(err), __LINE__);

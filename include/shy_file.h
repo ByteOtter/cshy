@@ -30,7 +30,7 @@ typedef struct {
 shy_file shy_file_read(const char* path);
 
 // Save SHY-File to disk.
-void shy_file_save(shy_file files, const char* path);
+void shy_file_save(shy_file files, const char* path, int clvl);
 
 // Create SHY-File memory representation.
 shy_file shy_file_create(const char** file_paths, size_t file_cnt);
