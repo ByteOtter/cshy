@@ -20,7 +20,7 @@ int main(int argc, const char** argv) {
     printf("\t-c - Specify compression level. (Standard: %i)\n\tPossible compression options: 1 - 20.\n\tZstd \'--ultra\' compression (level > 20) not supported.\n", clvl);
     printf("\nExample:\n");
     printf("\tcshy pack file1.txt file2.txt\n");
-    printf("\tcshy unpack archvie.shy\n");
+    printf("\tcshy unpack archive.shy\n");
     return 1;
   }
 
