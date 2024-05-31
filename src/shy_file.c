@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <shy_file.h>
+#include <gcrypt.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,7 @@
 // Define READ macro to avoid repetitive fread calls.
 #define READ(var) fread(&var, sizeof(var), 1, f)
 #define WRITE(var) fwrite(&var, sizeof(var), 1, f)
+
 
 shy_file shy_file_read(const char* path) {
   shy_file result;
@@ -115,7 +117,34 @@ void shy_file_save(shy_file files, const char* path, int clvl) {
   fclose(f);
 }
 
-shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
+/* Encrypt file using AES.
+ * 
+ * */
+shy_file shy_file_encrypt(const char* key, shy_file file) {
+  // Get a salt of 32 bit length.
+  void* keyBuff = calloc(16, sizeof(char));
+  size_t salt_len = 32;
+  const void* salt = gcry_random_bytes(salt_len, GCRY_STRONG_RANDOM);
+  gcry_kdf_derive(key, strlen(key), GCRY_KDF_PBKDF2, GCRY_MD_SHA256, salt, salt_len, 100000, sizeof(keyBuff), keyBuff);
+  gcry_cipher_hd_t enkey;
+  gcry_cipher_open(&enkey, GCRY_CIPHER_AES256, GCRY_CIPHER_MODE_GCM, GCRY_CIPHER_SECURE);
+  // Create random initialization vector
+  void* ivBuff = calloc(16, sizeof(char));
+  size_t iv_len = 32;
+  const void* iv = gcry_random_bytes(iv_len, GCRY_STRONG_RANDOM);
+  gcry_cipher_setiv(enkey, iv, iv_len);
+  gcry_cipher_setkey(enkey, keyBuff, sizeof(keyBuff));
+  // Encrypt each entry of the file.
+  for (size_t i = 0; i < file.header.file_cnt; i++) {
+    const char* curr_ent = (const char*) file.entries[i].data;
+    const char* enc_ent;
+    gcry_cipher_encrypt(enkey, enc_ent, sizeof(enc_ent), curr_ent, strlen(curr_ent));
+    file.entries[i].data = (uint8_t*) enc_ent;
+  }
+  return file;
+}
+
+shy_file shy_file_create(const char** file_paths, size_t file_cnt, const char* psw) {
   shy_file result;
   size_t data_size = 0;
   size_t str_size = 0;
@@ -161,6 +190,10 @@ shy_file shy_file_create(const char** file_paths, size_t file_cnt) {
   for (size_t i = 0; i < file_cnt; i++) {
     strcpy(cursor, file_paths[i]);
     cursor += strlen(file_paths[i])+1;
+  }
+
+  if (psw) {
+    shy_file_encrypt(psw, result);
   }
 
   return result;

@@ -8,6 +8,7 @@ int main(int argc, const char** argv) {
   size_t fileCount = 0;
   const char** inputFiles = calloc(fileCap, sizeof(char*));
   const char* outputFile = NULL;
+  const char* psw = NULL;
   int clvl = 14;
 
   if (argc < 3) {
@@ -18,6 +19,7 @@ int main(int argc, const char** argv) {
     printf("\nOptions:\n");
     printf("\t-o - Specify the name of your .shy-archive.\n");
     printf("\t-c - Specify compression level. (Standard: %i)\n\tPossible compression options: 1 - 20.\n\tZstd \'--ultra\' compression (level > 20) not supported.\n", clvl);
+    printf("\t-p - Specify a password for your file. If empty, your .shy will not be encrypted.\n");
     printf("\nExample:\n");
     printf("\tcshy pack file1.txt file2.txt\n");
     printf("\tcshy unpack archive.shy\n");
@@ -34,6 +36,8 @@ int main(int argc, const char** argv) {
         exit(1);
       }
       clvl = arg;
+    } else if (!strcmp(argv[i], "-p")) {
+      psw = argv[++i];
     } else {
       // This is essentially array.push()
       inputFiles[fileCount] = argv[i];
@@ -52,10 +56,11 @@ int main(int argc, const char** argv) {
 
   if(!strcmp(argv[1], "pack")) {
     printf("Packing files...\n");
-    shy_file file = shy_file_create(inputFiles, fileCount);
+    shy_file file = shy_file_create(inputFiles, fileCount, psw);
     char nameBuff[512];
 
     snprintf(nameBuff, sizeof(nameBuff), "%s.shy", outputFile);
+    
     shy_file_save(file, nameBuff, clvl);
 
   } else if (!strcmp(argv[1], "unpack")) {

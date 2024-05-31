@@ -33,6 +33,6 @@ shy_file shy_file_read(const char* path);
 void shy_file_save(shy_file files, const char* path, int clvl);
 
 // Create SHY-File memory representation.
-shy_file shy_file_create(const char** file_paths, size_t file_cnt);
+shy_file shy_file_create(const char** file_paths, size_t file_cnt, const char* psw);
 
 void shy_file_unpack(shy_file f, const char* shyFileName);
