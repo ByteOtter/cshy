@@ -121,7 +121,9 @@ void shy_file_save(shy_file files, const char* path, int clvl) {
  * 
  * */
 shy_file shy_file_encrypt(const char* key, shy_file file) {
-  // Get a salt of 32 bit length.
+ // Encrypt each entry of the file.
+for (size_t i = 0; i < file.header.file_cnt; i++) {
+   // Get a salt of 32 bit length.
   void* keyBuff = calloc(16, sizeof(char));
   size_t salt_len = 32;
   const void* salt = gcry_random_bytes(salt_len, GCRY_STRONG_RANDOM);
@@ -129,13 +131,10 @@ shy_file shy_file_encrypt(const char* key, shy_file file) {
   gcry_cipher_hd_t enkey;
   gcry_cipher_open(&enkey, GCRY_CIPHER_AES256, GCRY_CIPHER_MODE_GCM, GCRY_CIPHER_SECURE);
   // Create random initialization vector
-  void* ivBuff = calloc(16, sizeof(char));
   size_t iv_len = 32;
   const void* iv = gcry_random_bytes(iv_len, GCRY_STRONG_RANDOM);
   gcry_cipher_setiv(enkey, iv, iv_len);
   gcry_cipher_setkey(enkey, keyBuff, sizeof(keyBuff));
-  // Encrypt each entry of the file.
-  for (size_t i = 0; i < file.header.file_cnt; i++) {
     const char* curr_ent = (const char*) file.entries[i].data;
     const char* enc_ent;
     gcry_cipher_encrypt(enkey, enc_ent, sizeof(enc_ent), curr_ent, strlen(curr_ent));
