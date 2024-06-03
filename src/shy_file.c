@@ -11,6 +11,9 @@
 // Define READ macro to avoid repetitive fread calls.
 #define READ(var) fread(&var, sizeof(var), 1, f)
 #define WRITE(var) fwrite(&var, sizeof(var), 1, f)
+// Align integer to an address boundary.
+// If they are already aligned, do nothing.
+#define ALIGN(x, by) (x % by == 0 ? x : x + (by - (x % by)))
 
 
 shy_file shy_file_read(const char* path) {
@@ -122,25 +125,32 @@ void shy_file_save(shy_file files, const char* path, int clvl) {
  * */
 shy_file shy_file_encrypt(const char* key, shy_file file) {
  // Encrypt each entry of the file.
-for (size_t i = 0; i < file.header.file_cnt; i++) {
-   // Get a salt of 32 bit length.
-  void* keyBuff = calloc(16, sizeof(char));
-  size_t salt_len = 32;
-  const void* salt = gcry_random_bytes(salt_len, GCRY_STRONG_RANDOM);
-  gcry_kdf_derive(key, strlen(key), GCRY_KDF_PBKDF2, GCRY_MD_SHA256, salt, salt_len, 100000, sizeof(keyBuff), keyBuff);
-  gcry_cipher_hd_t enkey;
-  gcry_cipher_open(&enkey, GCRY_CIPHER_AES256, GCRY_CIPHER_MODE_GCM, GCRY_CIPHER_SECURE);
-  // Create random initialization vector
-  size_t iv_len = 32;
-  const void* iv = gcry_random_bytes(iv_len, GCRY_STRONG_RANDOM);
-  gcry_cipher_setiv(enkey, iv, iv_len);
-  gcry_cipher_setkey(enkey, keyBuff, sizeof(keyBuff));
-    const char* curr_ent = (const char*) file.entries[i].data;
-    const char* enc_ent;
-    gcry_cipher_encrypt(enkey, enc_ent, sizeof(enc_ent), curr_ent, strlen(curr_ent));
+  for (size_t i = 0; i < file.header.file_cnt; i++) {
+     // Get a salt of 32 bit length.
+    void* keyBuff = calloc(16, sizeof(char));
+    size_t salt_len = 32;
+    const void* salt = gcry_random_bytes(salt_len, GCRY_STRONG_RANDOM);
+    gcry_kdf_derive(key, strlen(key), GCRY_KDF_PBKDF2, GCRY_MD_SHA256, salt, salt_len, 100000, sizeof(keyBuff), keyBuff);
+    gcry_cipher_hd_t enkey;
+    gcry_cipher_open(&enkey, GCRY_CIPHER_AES256, GCRY_CIPHER_MODE_GCM, GCRY_CIPHER_SECURE);
+    // Create random initialization vector
+    size_t iv_len = 32;
+    const void* iv = gcry_random_bytes(iv_len, GCRY_STRONG_RANDOM);
+    gcry_cipher_setiv(enkey, iv, iv_len);
+    gcry_cipher_setkey(enkey, keyBuff, sizeof(keyBuff));
+    shy_entry* curr_ent = &file.entries[i];
+
+    const size_t aligned_size = ALIGN(curr_ent->size, 16);
+    char* enc_ent = calloc(aligned_size, 1);
+    gcry_cipher_encrypt(enkey, enc_ent, aligned_size, curr_ent->data, curr_ent->size);
+    free(curr_ent->data);
     file.entries[i].data = (uint8_t*) enc_ent;
   }
   return file;
+}
+
+shy_file shy_file_decrypt(const char* key, shy_file file) {
+
 }
 
 shy_file shy_file_create(const char** file_paths, size_t file_cnt, const char* psw) {
